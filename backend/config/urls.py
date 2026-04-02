@@ -1,12 +1,46 @@
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
+from django.db import DatabaseError, connection
 from django.http import JsonResponse
 from django.urls import include, path
 
 
+REQUIRED_TABLES = {
+    "accounts_user",
+    "token_blacklist_blacklistedtoken",
+    "token_blacklist_outstandingtoken",
+}
+
+
 def health_check(_request):
-    return JsonResponse({"status": "ok"})
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT 1")
+
+        existing_tables = set(connection.introspection.table_names())
+        missing_tables = sorted(REQUIRED_TABLES - existing_tables)
+        if missing_tables:
+            return JsonResponse(
+                {
+                    "status": "degraded",
+                    "database": "ok",
+                    "migrations": "pending",
+                    "missing_tables": missing_tables,
+                },
+                status=503,
+            )
+
+        return JsonResponse({"status": "ok", "database": "ok"})
+    except DatabaseError:
+        return JsonResponse(
+            {
+                "status": "degraded",
+                "database": "error",
+                "detail": "Database not reachable",
+            },
+            status=503,
+        )
 
 
 urlpatterns = [

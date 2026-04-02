@@ -1,5 +1,5 @@
 from django.contrib.auth import authenticate
-from django.db import transaction
+from django.db import DatabaseError, transaction
 from django.utils.crypto import get_random_string
 from rest_framework import permissions, status
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
@@ -31,6 +31,15 @@ def _auth_response(user: User, request) -> dict:
     }
 
 
+def _database_unavailable_response() -> Response:
+    return Response(
+        {
+            "detail": "Database not ready. Verify DATABASE_URL and run migrations.",
+        },
+        status=status.HTTP_503_SERVICE_UNAVAILABLE,
+    )
+
+
 class SignupView(APIView):
     permission_classes = [permissions.AllowAny]
     throttle_classes = [ScopedRateThrottle]
@@ -40,8 +49,11 @@ class SignupView(APIView):
     def post(self, request):
         serializer = SignupSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        user = serializer.save()
-        return Response(_auth_response(user, request), status=status.HTTP_201_CREATED)
+        try:
+            user = serializer.save()
+            return Response(_auth_response(user, request), status=status.HTTP_201_CREATED)
+        except DatabaseError:
+            return _database_unavailable_response()
 
 
 class LoginView(APIView):
@@ -53,14 +65,17 @@ class LoginView(APIView):
         serializer = LoginSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        email = serializer.validated_data["email"].lower().strip()
-        password = serializer.validated_data["password"]
-        user = authenticate(request=request, username=email, password=password)
+        try:
+            email = serializer.validated_data["email"].lower().strip()
+            password = serializer.validated_data["password"]
+            user = authenticate(request=request, username=email, password=password)
 
-        if not user:
-            return Response({"detail": "Invalid credentials"}, status=status.HTTP_401_UNAUTHORIZED)
+            if not user:
+                return Response({"detail": "Invalid credentials"}, status=status.HTTP_401_UNAUTHORIZED)
 
-        return Response(_auth_response(user, request), status=status.HTTP_200_OK)
+            return Response(_auth_response(user, request), status=status.HTTP_200_OK)
+        except DatabaseError:
+            return _database_unavailable_response()
 
 
 class GoogleLoginView(APIView):
@@ -76,24 +91,26 @@ class GoogleLoginView(APIView):
         payload = verify_firebase_id_token(serializer.validated_data["id_token"])
         email = payload["email"].lower().strip()
         name = payload.get("name", "Google User")
+        try:
+            user, created = User.objects.get_or_create(
+                email=email,
+                defaults={
+                    "full_name": name[:120],
+                    "auth_provider": User.AuthProvider.GOOGLE,
+                },
+            )
 
-        user, created = User.objects.get_or_create(
-            email=email,
-            defaults={
-                "full_name": name[:120],
-                "auth_provider": User.AuthProvider.GOOGLE,
-            },
-        )
+            if created:
+                user.set_password(get_random_string(32))
+                user.save(update_fields=["password"])
 
-        if created:
-            user.set_password(get_random_string(32))
-            user.save(update_fields=["password"])
+            if user.auth_provider != User.AuthProvider.GOOGLE:
+                user.auth_provider = User.AuthProvider.GOOGLE
+                user.save(update_fields=["auth_provider", "updated_at"])
 
-        if user.auth_provider != User.AuthProvider.GOOGLE:
-            user.auth_provider = User.AuthProvider.GOOGLE
-            user.save(update_fields=["auth_provider", "updated_at"])
-
-        return Response(_auth_response(user, request), status=status.HTTP_200_OK)
+            return Response(_auth_response(user, request), status=status.HTTP_200_OK)
+        except DatabaseError:
+            return _database_unavailable_response()
 
 
 class LogoutView(APIView):

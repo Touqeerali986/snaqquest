@@ -33,15 +33,30 @@ class ApiClient {
     return headers;
   }
 
-  dynamic _parseBody(http.Response response) {
+  dynamic _tryParseJson(http.Response response) {
     if (response.body.isEmpty) {
       return null;
     }
-    return jsonDecode(response.body);
+    try {
+      return jsonDecode(response.body);
+    } on FormatException {
+      return null;
+    }
+  }
+
+  dynamic _parseBody(http.Response response) {
+    final payload = _tryParseJson(response);
+    if (payload != null || response.body.isEmpty) {
+      return payload;
+    }
+    throw ApiException(
+      'Server returned an invalid response format',
+      statusCode: response.statusCode,
+    );
   }
 
   Never _throwApiError(http.Response response) {
-    final payload = _parseBody(response);
+    final payload = _tryParseJson(response);
     String message = 'Request failed (${response.statusCode})';
     if (payload is Map<String, dynamic>) {
       if (payload['detail'] is String) {
@@ -55,6 +70,10 @@ class ApiClient {
           message = firstValue;
         }
       }
+    } else if (response.body.isNotEmpty &&
+        response.body.contains('<!doctype html')) {
+      message =
+          'Server error on backend. Check deployment logs and migrations.';
     }
     throw ApiException(message, statusCode: response.statusCode);
   }
