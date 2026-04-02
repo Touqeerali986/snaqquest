@@ -1,0 +1,30 @@
+# Root
+.env
+*.log
+*.keystore
+*.jks
+
+# Python
+__pycache__/
+*.py[cod]
+*.sqlite3
+.venv/
+venv/
+backend/.env
+backend/media/
+
+# Flutter
+frontend/.dart_tool/
+frontend/.flutter-plugins
+frontend/.flutter-plugins-dependencies
+frontend/.packages
+frontend/build/
+frontend/android/app/google-services.json
+frontend/android/app/src/debug/google-services.json
+frontend/android/app/src/release/google-services.json
+frontend/android/key.properties
+frontend/android/upload-keystore.jks
+
+# IDE
+.vscode/
+.idea/

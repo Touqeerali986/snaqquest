@@ -1,0 +1,5 @@
+# Copy this file to frontend/android/key.properties and fill real values.
+storePassword=replace_with_store_password
+keyPassword=replace_with_key_password
+keyAlias=snaqquest_upload
+storeFile=upload-keystore.jks
