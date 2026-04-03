@@ -15,13 +15,9 @@ class UserSerializer(serializers.ModelSerializer):
         if not obj.avatar:
             return None
 
-        request = self.context.get("request")
         version = int(obj.updated_at.timestamp())
-        if request:
-            absolute = request.build_absolute_uri(obj.avatar.url)
-            if absolute.startswith("http://") and ".onrender.com" in absolute:
-                absolute = f"https://{absolute[len('http://') :]}"
-            return f"{absolute}?v={version}"
+        # Return relative media URL so clients can safely bind it to their
+        # configured API host in all environments.
         return f"{obj.avatar.url}?v={version}"
 
 

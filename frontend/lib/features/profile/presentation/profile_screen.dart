@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
+import '../../../core/config/app_config.dart';
 import '../../../core/state/session_controller.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -52,6 +53,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
           context,
         ).showSnackBar(SnackBar(content: Text(session.errorMessage!)));
       } else if (ok) {
+        await session.refreshProfile();
+        if (!mounted) {
+          return;
+        }
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(const SnackBar(content: Text('Photo uploaded')));
@@ -99,6 +104,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (_nameController.text.isEmpty) {
       _nameController.text = user.fullName;
     }
+
+    final avatarUrl = _resolveAvatarUrl(user.avatarUrl);
 
     return Scaffold(
       body: Container(
@@ -152,16 +159,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 child: ClipOval(
                                   child: user.avatarUrl != null
                                       ? Image.network(
-                                          user.avatarUrl!,
-                                          key: ValueKey(user.avatarUrl),
+                                          avatarUrl!,
+                                          key: ValueKey(avatarUrl),
                                           width: 104,
                                           height: 104,
                                           fit: BoxFit.cover,
-                                          errorBuilder: (_, _, _) =>
-                                              _avatarFallback(
-                                                context,
-                                                user.fullName,
-                                              ),
+                                          errorBuilder: (ctx, err, stack) {
+                                            debugPrint(
+                                              'Avatar load failed for $avatarUrl: $err',
+                                            );
+                                            return _avatarFallback(
+                                              ctx,
+                                              user.fullName,
+                                            );
+                                          },
                                         )
                                       : _avatarFallback(context, user.fullName),
                                 ),
@@ -212,6 +223,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
     );
   }
+}
+
+String? _resolveAvatarUrl(String? raw) {
+  if (raw == null || raw.trim().isEmpty) {
+    return null;
+  }
+
+  final trimmed = raw.trim();
+  final parsed = Uri.tryParse(trimmed);
+  if (parsed != null && parsed.hasScheme) {
+    return trimmed;
+  }
+
+  final apiUri = Uri.tryParse(AppConfig.apiBaseUrl);
+  if (apiUri == null || !apiUri.hasScheme || apiUri.host.isEmpty) {
+    return trimmed;
+  }
+
+  final origin =
+      '${apiUri.scheme}://${apiUri.host}${apiUri.hasPort ? ':${apiUri.port}' : ''}';
+  if (trimmed.startsWith('/')) {
+    return '$origin$trimmed';
+  }
+  return '$origin/$trimmed';
 }
 
 Widget _avatarFallback(BuildContext context, String fullName) {
