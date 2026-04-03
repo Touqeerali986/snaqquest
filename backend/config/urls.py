@@ -55,6 +55,6 @@ if settings.DEBUG or settings.SERVE_MEDIA_FILES:
         re_path(
             rf"^{media_prefix}(?P<path>.*)$",
             serve,
-            {"document_root": settings.MEDIA_ROOT, "insecure": True},
+            {"document_root": settings.MEDIA_ROOT},
         )
     ]
