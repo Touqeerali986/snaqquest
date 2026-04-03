@@ -1,3 +1,5 @@
+import logging
+
 from django.conf import settings
 from firebase_admin import auth, credentials
 from firebase_admin import initialize_app as firebase_initialize_app
@@ -7,6 +9,7 @@ from rest_framework.exceptions import AuthenticationFailed
 
 
 _firebase_initialized = False
+logger = logging.getLogger(__name__)
 
 
 def _initialize_firebase_once() -> None:
@@ -43,10 +46,31 @@ def verify_firebase_id_token(id_token: str) -> dict:
     if not id_token:
         raise AuthenticationFailed("Google ID token is required")
 
+    if not settings.FIREBASE_PROJECT_ID:
+        raise AuthenticationFailed(
+            "Backend Firebase project is not configured. Contact support."
+        )
+
     try:
         _initialize_firebase_once()
-        decoded = auth.verify_id_token(id_token, check_revoked=True)
-    except (ValueError, FirebaseError) as exc:
+        # Revocation check requires fully configured admin credentials and an
+        # extra network hop; keep login resilient in hosted environments.
+        decoded = auth.verify_id_token(id_token, check_revoked=False)
+    except ValueError as exc:
+        message = str(exc).lower()
+        if "aud" in message or "audience" in message:
+            raise AuthenticationFailed("Token audience mismatch") from exc
+        if "expired" in message:
+            raise AuthenticationFailed("Google token expired") from exc
+        logger.warning("Google token verification failed: %s", exc)
+        raise AuthenticationFailed("Invalid Google token") from exc
+    except FirebaseError as exc:
+        logger.exception("Firebase verification error")
+        raise AuthenticationFailed(
+            "Google auth service misconfigured on backend. Verify Firebase env."
+        ) from exc
+    except Exception as exc:
+        logger.exception("Unexpected error during Google token verification")
         raise AuthenticationFailed("Invalid Google token") from exc
 
     project_id = settings.FIREBASE_PROJECT_ID
