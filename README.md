@@ -106,8 +106,25 @@ powershell -ExecutionPolicy Bypass -File scripts/run-client-local.ps1 -DeviceId 
 - Configure strict `CORS_ALLOWED_ORIGINS`
 - Use PostgreSQL `DATABASE_URL`
 - Configure Firebase credentials in backend env
+- Set `SERVE_MEDIA_FILES=True` and `DJANGO_MEDIA_ROOT=/var/data/media` on Render
 - Upload release signing configs for Android/iOS builds
 - Run tests and smoke flow checks
+
+## Release Snapshot
+- Stable baseline verified on 2026-04-03
+- Backend checks: `python manage.py check`, `python manage.py test`
+- Frontend checks: `flutter analyze`, `flutter test`
+- Production smoke verified:
+  - Google login flow
+  - Profile avatar upload and fetch
+  - Render health endpoint
+
+## Fast Production Verification
+1. Open `https://YOUR_RENDER_BACKEND/health/` and confirm `{"status":"ok","database":"ok"}`.
+2. Login with Google from app using `API_BASE_URL=https://YOUR_RENDER_BACKEND/api/v1`.
+3. Upload a profile image and confirm it appears on profile reload.
+4. If Google login fails, re-check `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY`.
+5. If avatar fails, confirm `SERVE_MEDIA_FILES=True`, `DJANGO_MEDIA_ROOT=/var/data/media`, and persistent disk is mounted.
 
 ## Debug Command
 Run full debug checks anytime:

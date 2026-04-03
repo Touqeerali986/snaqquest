@@ -77,8 +77,16 @@ powershell -ExecutionPolicy Bypass -File scripts/debug-all.ps1
    - FIREBASE_PROJECT_ID
    - FIREBASE_CLIENT_EMAIL
    - FIREBASE_PRIVATE_KEY
-5. Open health URL after deploy:
+   - SERVE_MEDIA_FILES=True
+   - DJANGO_MEDIA_ROOT=/var/data/media
+6. Attach a persistent disk in Render and mount it at:
+   /var/data/media
+7. Open health URL after deploy:
    https://YOUR_RENDER_BACKEND/health/
+8. Run smoke test:
+   - Google login works
+   - Profile photo upload works
+   - Uploaded photo is visible after app reload
 
 ## H) Client machine local run (same as your machine)
 1. Install prerequisites on client machine:
