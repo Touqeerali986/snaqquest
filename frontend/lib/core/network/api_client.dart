@@ -18,11 +18,36 @@ class ApiClient {
 
   final String baseUrl;
 
+  String _normalizedBaseUrl() {
+    final trimmed = baseUrl.trim();
+    if (trimmed.isEmpty) {
+      return trimmed;
+    }
+
+    final withScheme =
+        trimmed.startsWith('http://') || trimmed.startsWith('https://')
+        ? trimmed
+        : 'https://$trimmed';
+
+    return withScheme.replaceAll(RegExp(r'/$'), '');
+  }
+
   Uri _uri(String path) {
     final normalizedPath = path.startsWith('/') ? path.substring(1) : path;
-    return Uri.parse(
-      '${baseUrl.replaceAll(RegExp(r'/$'), '')}/$normalizedPath',
-    );
+    final candidate = '${_normalizedBaseUrl()}/$normalizedPath';
+    final parsed = Uri.tryParse(candidate);
+
+    if (parsed == null ||
+        parsed.host.isEmpty ||
+        !(parsed.scheme == 'http' || parsed.scheme == 'https')) {
+      throw const ApiException(
+        'Invalid API_BASE_URL. Use full URL like '
+        'http://192.168.1.10:8000/api/v1 or '
+        'https://your-backend.onrender.com/api/v1',
+      );
+    }
+
+    return parsed;
   }
 
   Future<Map<String, String>> _headers({String? accessToken}) async {

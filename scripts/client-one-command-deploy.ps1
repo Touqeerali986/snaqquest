@@ -11,6 +11,22 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
+if ([string]::IsNullOrWhiteSpace($ApiBaseUrl)) {
+    throw "ApiBaseUrl is required and cannot be empty. Example: https://your-backend.onrender.com/api/v1"
+}
+
+try {
+    $parsedApiBaseUrl = [uri]$ApiBaseUrl
+} catch {
+    throw "ApiBaseUrl '$ApiBaseUrl' is not a valid URI."
+}
+
+if ($parsedApiBaseUrl.Scheme -notin @("http", "https") -or [string]::IsNullOrWhiteSpace($parsedApiBaseUrl.Host)) {
+    throw "ApiBaseUrl must include http/https scheme and host. Example: https://your-backend.onrender.com/api/v1"
+}
+
+$ApiBaseUrl = $ApiBaseUrl.TrimEnd('/')
+
 function Assert-Command {
     param([Parameter(Mandatory = $true)][string]$Name)
     if (-not (Get-Command $Name -ErrorAction SilentlyContinue)) {
