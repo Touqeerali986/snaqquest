@@ -15,14 +15,13 @@ class UserSerializer(serializers.ModelSerializer):
         if not obj.avatar:
             return None
 
-        # If DB points to a removed file, do not return a broken URL.
-        if not obj.avatar.storage.exists(obj.avatar.name):
-            return None
-
         request = self.context.get("request")
         version = int(obj.updated_at.timestamp())
         if request:
-            return f"{request.build_absolute_uri(obj.avatar.url)}?v={version}"
+            absolute = request.build_absolute_uri(obj.avatar.url)
+            if absolute.startswith("http://") and ".onrender.com" in absolute:
+                absolute = f"https://{absolute[len('http://') :]}"
+            return f"{absolute}?v={version}"
         return f"{obj.avatar.url}?v={version}"
 
 
