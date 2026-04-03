@@ -1,9 +1,9 @@
 from django.conf import settings
-from django.conf.urls.static import static
 from django.contrib import admin
 from django.db import DatabaseError, connection
 from django.http import JsonResponse
-from django.urls import include, path
+from django.urls import include, path, re_path
+from django.views.static import serve
 
 
 REQUIRED_TABLES = {
@@ -50,4 +50,11 @@ urlpatterns = [
 ]
 
 if settings.DEBUG or settings.SERVE_MEDIA_FILES:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    media_prefix = settings.MEDIA_URL.lstrip("/")
+    urlpatterns += [
+        re_path(
+            rf"^{media_prefix}(?P<path>.*)$",
+            serve,
+            {"document_root": settings.MEDIA_ROOT},
+        )
+    ]
