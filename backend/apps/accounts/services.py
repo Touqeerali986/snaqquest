@@ -24,19 +24,27 @@ def _initialize_firebase_once() -> None:
     except ValueError:
         pass
 
+    options = {"projectId": settings.FIREBASE_PROJECT_ID} if settings.FIREBASE_PROJECT_ID else None
+
     if settings.FIREBASE_CLIENT_EMAIL and settings.FIREBASE_PRIVATE_KEY and settings.FIREBASE_PROJECT_ID:
-        cred = credentials.Certificate(
-            {
-                "type": "service_account",
-                "project_id": settings.FIREBASE_PROJECT_ID,
-                "private_key": settings.FIREBASE_PRIVATE_KEY,
-                "client_email": settings.FIREBASE_CLIENT_EMAIL,
-                "token_uri": "https://oauth2.googleapis.com/token",
-            }
-        )
-        firebase_initialize_app(cred, {"projectId": settings.FIREBASE_PROJECT_ID})
+        try:
+            cred = credentials.Certificate(
+                {
+                    "type": "service_account",
+                    "project_id": settings.FIREBASE_PROJECT_ID,
+                    "private_key": settings.FIREBASE_PRIVATE_KEY,
+                    "client_email": settings.FIREBASE_CLIENT_EMAIL,
+                    "token_uri": "https://oauth2.googleapis.com/token",
+                }
+            )
+            firebase_initialize_app(cred, options)
+        except Exception:
+            # ID token verification can still work with only projectId.
+            logger.exception(
+                "Firebase service account init failed. Falling back to projectId-only init."
+            )
+            firebase_initialize_app(options=options)
     else:
-        options = {"projectId": settings.FIREBASE_PROJECT_ID} if settings.FIREBASE_PROJECT_ID else None
         firebase_initialize_app(options=options)
 
     _firebase_initialized = True
@@ -60,6 +68,12 @@ def verify_firebase_id_token(id_token: str) -> dict:
         message = str(exc).lower()
         if "aud" in message or "audience" in message:
             raise AuthenticationFailed("Token audience mismatch") from exc
+        if "iss" in message or "issuer" in message:
+            raise AuthenticationFailed("Token issuer mismatch") from exc
+        if "project id" in message:
+            raise AuthenticationFailed(
+                "Google auth project mismatch. Verify Firebase project IDs on app and backend."
+            ) from exc
         if "expired" in message:
             raise AuthenticationFailed("Google token expired") from exc
         logger.warning("Google token verification failed: %s", exc)

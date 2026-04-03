@@ -141,9 +141,12 @@ ALLOWED_AVATAR_MIME_TYPES = {
     "image/webp",
 }
 
-FIREBASE_PROJECT_ID = os.getenv("FIREBASE_PROJECT_ID", "")
-FIREBASE_CLIENT_EMAIL = os.getenv("FIREBASE_CLIENT_EMAIL", "")
-FIREBASE_PRIVATE_KEY = os.getenv("FIREBASE_PRIVATE_KEY", "").replace("\\n", "\n")
+FIREBASE_PROJECT_ID = os.getenv("FIREBASE_PROJECT_ID", "").strip()
+FIREBASE_CLIENT_EMAIL = os.getenv("FIREBASE_CLIENT_EMAIL", "").strip()
+_firebase_private_key = os.getenv("FIREBASE_PRIVATE_KEY", "").strip()
+if _firebase_private_key.startswith('"') and _firebase_private_key.endswith('"'):
+    _firebase_private_key = _firebase_private_key[1:-1]
+FIREBASE_PRIVATE_KEY = _firebase_private_key.replace("\\n", "\n").replace("\r\n", "\n")
 
 LOGGING = {
     "version": 1,
