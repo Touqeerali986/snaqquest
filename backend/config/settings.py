@@ -87,7 +87,9 @@ STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = Path(os.getenv("DJANGO_MEDIA_ROOT", str(BASE_DIR / "media")))
-SERVE_MEDIA_FILES = os.getenv("SERVE_MEDIA_FILES", "False").lower() == "true"
+SERVE_MEDIA_FILES = os.getenv(
+    "SERVE_MEDIA_FILES", "True" if not DEBUG else "False"
+).lower() == "true"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 AUTH_USER_MODEL = "accounts.User"
